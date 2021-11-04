@@ -24,6 +24,8 @@ struct GameInfo {
     static constexpr uint32_t building_elevator_num = 1; // 电梯数
     static constexpr uint32_t elevator_load_max_num = 16; // 电梯最大载人数
     static constexpr uint32_t elevator_run_round = 100; // 回合数
+
+    std::atomic_uint32_t round = elevator_run_round;
     std::atomic<Instruction> current_instruction = INVALID;
     std::atomic_bool game_over = false;
 };
@@ -152,17 +154,17 @@ private:
     std::vector<Elevator> elevators;
 };
 
-void Print(Building& building, std::atomic_uint32_t& round, GameInfo& game_info) {
+void Print(Building& building, GameInfo& game_info) {
     system("clear");
-    std::cout << "Round " << round << "\n";
+    std::cout << "Round " << game_info.round << "\n";
     building.Print();
     std::cout << "Current Instruction = " << game_info.current_instruction << std::endl;
 }
 
 struct System {
-    void Run(Building& building, std::atomic_uint32_t& round, GameInfo& game_info) {
-        while(round-- > 0) {
-            Print(building, round, game_info);
+    void Run(Building& building, GameInfo& game_info) {
+        while(game_info.round-- > 0) {
+            Print(building, game_info);
             building.Update(game_info);
             std::this_thread::sleep_for(std::chrono::seconds(1));
         }
@@ -172,7 +174,7 @@ struct System {
 
 // TODO: 换成键盘监听
 struct KeyBoard {
-    void Listen(Building& building, std::atomic_uint32_t& round, GameInfo& game_info) {
+    void Listen(Building& building, GameInfo& game_info) {
         while(!game_info.game_over) {
             char ch;
             std::cin >> ch;
@@ -190,7 +192,7 @@ struct KeyBoard {
                     game_info.current_instruction = OPEN;
                 }
             }
-            Print(building, round, game_info);
+            Print(building, game_info);
         }
     }
 };
@@ -198,12 +200,11 @@ struct KeyBoard {
 int main() {
     GameInfo game_info;
     Building building(GameInfo::building_floor_num, GameInfo::building_elevator_num);
-    std::atomic_uint32_t round = GameInfo::elevator_run_round;
     System system;
     KeyBoard key_board;
 
-    std::thread key_board_thread(&KeyBoard::Listen, &key_board, std::ref(building), std::ref(round), std::ref(game_info));
-    std::thread system_thread(&System::Run, &system, std::ref(building), std::ref(round), std::ref(game_info));
+    std::thread key_board_thread(&KeyBoard::Listen, &key_board, std::ref(building), std::ref(game_info));
+    std::thread system_thread(&System::Run, &system, std::ref(building), std::ref(game_info));
     system_thread.join();
     key_board_thread.join();
     return 0;
