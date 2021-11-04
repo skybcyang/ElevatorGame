@@ -17,4 +17,4 @@ FetchContent_MakeAvailable(Catch2)
 
 add_executable(elevate_game test.cpp main.cpp)
 
-target_link_libraries(elevate_game PRIVATE Catch2::Catch2WithMain)
+target_link_libraries(elevate_game PRIVATE pthread Catch2::Catch2WithMain)
