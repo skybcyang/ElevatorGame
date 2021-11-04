@@ -6,13 +6,29 @@
 #include <vector>
 #include <cstdlib>
 #include <thread>
+#include <future>
 #include <random>
+#include <atomic>
 #include <NoCopyable.h>
 
 constexpr uint32_t building_floor_num = 10; // 楼层数
-constexpr uint32_t building_elevator_num = 2; // 电梯数
+constexpr uint32_t building_elevator_num = 1; // 电梯数
 constexpr uint32_t elevator_load_max_num = 16; // 电梯最大载人数
 constexpr uint32_t elevator_run_round = 100; // 回合数
+
+enum Instruction {
+    INVALID,
+    UP,
+    DONW,
+    OPEN,
+    CLOSE,
+};
+
+std::mutex mutex;
+Instruction current_instruction = INVALID;
+std::atomic_bool game_over = false;
+
+
 
 struct Person : private NoCopyable {
     Person() : NoCopyable() {
@@ -45,7 +61,7 @@ struct Floor {
         for (auto& person : persons) {
             person->Print();
         }
-        std::cout << "]" << std::endl;
+        std::cout << "]\n";
     }
     void Update() {
         for (auto& person: persons) {
@@ -66,13 +82,28 @@ struct Elevator {
         persons.reserve(elevator_load_max_num);
     }
     void Update() {
-        door_status = !door_status;
-        if (current_floor > 1) {
-            current_floor--;
+        std::lock_guard<std::mutex> lock(mutex);
+        switch(current_instruction) {
+            case(UP) :
+                if (current_floor < building_floor_num) {
+                    current_floor++;
+                }
+                break;
+            case(DONW):
+                if (current_floor > 1) {
+                    current_floor--;
+                }
+                break;
+            case(OPEN):
+                door_status = true;
+                break;
+            case(CLOSE):
+                door_status = false;
+                break;
+            default:
+                break;
         }
-        if (current_floor < building_floor_num) {
-            current_floor++;
-        }
+        current_instruction = INVALID;
     }
     uint32_t GetPersonNum() {
         return persons.size();
@@ -124,34 +155,59 @@ private:
     std::vector<Elevator> elevators;
 };
 
-void Print(Building& building, uint round) {
+void Print(Building& building, std::atomic_uint32_t& round) {
     system("clear");
-    std::cout << "Round " << round << std::endl;
+    std::cout << "Round " << round << "\n";
     building.Print();
+    std::lock_guard<std::mutex> lock(mutex);
+    std::cout << "Current Instruction = " << current_instruction << std::endl;
 }
 
 struct System {
-    void Run() {
-        Building building(building_floor_num, building_elevator_num);
-        uint32_t round = elevator_run_round;
+    void Run(Building& building, std::atomic_uint32_t& round) {
         while(round-- > 0) {
-            building.Update();
             Print(building, round);
+            building.Update();
             std::this_thread::sleep_for(std::chrono::seconds(1));
+        }
+        game_over = true;
+    }
+};
+
+// TODO: 换成键盘监听
+struct KeyBoard {
+    void Listen(Building& building, std::atomic_uint32_t& round) {
+        while(!game_over) {
+            char ch;
+            std::cin >> ch;
+            {
+                std::lock_guard<std::mutex> lock(mutex);
+                if (ch == 'w') {
+                    current_instruction = UP;
+                }
+                else if (ch == 's') {
+                    current_instruction = DONW;
+                }
+                else if (ch == 'a') {
+                    current_instruction = CLOSE;
+                }
+                else if (ch == 'd') {
+                    current_instruction = OPEN;
+                }
+            }
+            Print(building, round);
         }
     }
 };
 
-struct KeyBoard {
-    void Listen() {
-    }
-};
-
 int main() {
+    Building building(building_floor_num, building_elevator_num);
+    std::atomic_uint32_t round = elevator_run_round;
     System system;
     KeyBoard key_board;
-    std::thread key_board_thread(&KeyBoard::Listen, &key_board);
-    std::thread system_thread(&System::Run, &system);
+
+    std::thread key_board_thread(&KeyBoard::Listen, &key_board, std::ref(building), std::ref(round));
+    std::thread system_thread(&System::Run, &system, std::ref(building), std::ref(round));
     system_thread.join();
     key_board_thread.join();
     return 0;
