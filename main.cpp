@@ -10,7 +10,11 @@ void Print(Building& building, GameInfo& game_info) {
     system("clear");
     std::cout << "Round " << game_info.round << "\n";
     building.Print();
-    std::cout << "Current Instruction = " << game_info.current_instruction << std::endl;
+    std::cout << "Current Instruction =";
+    for (auto& instruction: game_info.current_instruction) {
+        std::cout << " " << instruction;
+    }
+    std::cout << std::endl;
 }
 
 struct System {
@@ -32,16 +36,16 @@ struct KeyBoard {
             std::cin >> ch;
             {
                 if (ch == 'w') {
-                    game_info.current_instruction = UP;
+                    game_info.current_instruction[0] = UP;
                 }
                 else if (ch == 's') {
-                    game_info.current_instruction = DONW;
+                    game_info.current_instruction[0] = DONW;
                 }
                 else if (ch == 'a') {
-                    game_info.current_instruction = CLOSE;
+                    game_info.current_instruction[0] = CLOSE;
                 }
                 else if (ch == 'd') {
-                    game_info.current_instruction = OPEN;
+                    game_info.current_instruction[0] = OPEN;
                 }
             }
             Print(building, game_info);

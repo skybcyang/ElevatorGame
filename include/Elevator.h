@@ -14,7 +14,7 @@ struct Elevator {
     }
 
     void Update(GameInfo& game_info) {
-        switch(game_info.current_instruction) {
+        switch(game_info.current_instruction[0]) {
             case(UP) :
                 if (current_floor < GameInfo::building_floor_num && !door_status) {
                     current_floor++;
@@ -34,7 +34,7 @@ struct Elevator {
             default:
                 break;
         }
-        game_info.current_instruction = INVALID;
+        game_info.current_instruction[0] = INVALID;
         for (auto iter = persons.begin(); iter != persons.end();) {
             if ((*iter)->GetAimFloor() == current_floor && door_status) {
                 iter = persons.erase(iter);
